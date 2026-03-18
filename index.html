@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テトリス（1人 / 2人対戦）</title>
+<style>
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+canvas {
+  background: #222;
+}
+
+button {
+  font-size: 18px;
+  margin: 10px;
+  padding: 10px 20px;
+}
+</style>
+</head>
+<body>
+
+<h2>🎮 テトリス</h2>
+
+<div id="menu">
+  <button onclick="startGame(1)">1人プレイ</button>
+  <button onclick="startGame(2)">2人対戦</button>
+</div>
+
+<div class="container" id="game" style="display:none;">
+  <canvas id="p1" width="200" height="400"></canvas>
+  <canvas id="p2" width="200" height="400"></canvas>
+</div>
+
+<script>
+const ROWS = 20;
+const COLS = 10;
+const SIZE = 20;
+
+let mode = 1;
+
+const shapes = [
+  [[1,1,1,1]],
+  [[1,1],[1,1]],
+  [[0,1,0],[1,1,1]],
+  [[1,0,0],[1,1,1]],
+  [[0,0,1],[1,1,1]],
+];
+
+function createPlayer(canvasId){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext("2d");
+
+  return {
+    ctx,
+    board: Array.from({length: ROWS}, () => Array(COLS).fill(0)),
+    piece: randomPiece(),
+  };
+}
+
+function randomPiece(){
+  const shape = shapes[Math.floor(Math.random()*shapes.length)];
+  return { shape, x: 3, y: 0 };
+}
+
+let p1, p2;
+
+function startGame(m){
+  mode = m;
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("game").style.display = "flex";
+
+  p1 = createPlayer("p1");
+  p2 = createPlayer("p2");
+
+  if(mode === 1){
+    document.getElementById("p2").style.display = "none";
+  }
+
+  loop = setInterval(update, 500);
+}
+
+function draw(player, color){
+  player.ctx.clearRect(0,0,200,400);
+
+  player.board.forEach((row,y)=>{
+    row.forEach((v,x)=>{
+      if(v){
+        drawBlock(player.ctx,x,y,color);
+      }
+    });
+  });
+
+  player.piece.shape.forEach((row,y)=>{
+    row.forEach((v,x)=>{
+      if(v){
+        drawBlock(player.ctx,player.piece.x+x,player.piece.y+y,color);
+      }
+    });
+  });
+}
+
+function drawBlock(ctx,x,y,color){
+  ctx.fillStyle = color;
+  ctx.fillRect(x*SIZE,y*SIZE,SIZE-1,SIZE-1);
+}
+
+function collide(player){
+  return player.piece.shape.some((row,y)=>{
+    return row.some((v,x)=>{
+      if(!v) return false;
+      let nx = player.piece.x+x;
+      let ny = player.piece.y+y;
+      return nx<0 || nx>=COLS || ny>=ROWS || (ny>=0 && player.board[ny][nx]);
+    });
+  });
+}
+
+function merge(player){
+  player.piece.shape.forEach((row,y)=>{
+    row.forEach((v,x)=>{
+      if(v){
+        player.board[player.piece.y+y][player.piece.x+x]=1;
+      }
+    });
+  });
+}
+
+function move(player,dir){
+  player.piece.x+=dir;
+  if(collide(player)) player.piece.x-=dir;
+}
+
+function rotate(player){
+  const newShape = player.piece.shape[0].map((_,i)=>
+    player.piece.shape.map(r=>r[i]).reverse()
+  );
+  const old = player.piece.shape;
+  player.piece.shape = newShape;
+  if(collide(player)) player.piece.shape = old;
+}
+
+function drop(player, opponent){
+  player.piece.y++;
+  if(collide(player)){
+    player.piece.y--;
+    merge(player);
+    let lines = clearLines(player);
+
+    if(mode===2 && lines>0){
+      addGarbage(opponent, lines);
+    }
+
+    player.piece = randomPiece();
+
+    if(collide(player)){
+      alert("ゲームオーバー");
+      location.reload();
+    }
+  }
+}
+
+// ★ ハードドロップ
+function hardDrop(player, opponent){
+  while(!collide(player)){
+    player.piece.y++;
+  }
+  player.piece.y--;
+  merge(player);
+
+  let lines = clearLines(player);
+
+  if(mode===2 && lines>0){
+    addGarbage(opponent, lines);
+  }
+
+  player.piece = randomPiece();
+}
+
+function clearLines(player){
+  let lines = 0;
+
+  player.board = player.board.filter(row=>{
+    if(row.every(v=>v)){
+      lines++;
+      return false;
+    }
+    return true;
+  });
+
+  while(player.board.length < ROWS){
+    player.board.unshift(Array(COLS).fill(0));
+  }
+
+  return lines;
+}
+
+function addGarbage(player, lines){
+  for(let i=0;i<lines;i++){
+    player.board.shift();
+    let garbage = Array(COLS).fill(1);
+    garbage[Math.floor(Math.random()*COLS)] = 0;
+    player.board.push(garbage);
+  }
+}
+
+document.addEventListener("keydown", e=>{
+  // P1
+  if(e.key==="a") move(p1,-1);
+  if(e.key==="d") move(p1,1);
+  if(e.key==="s") drop(p1,p2);
+  if(e.key==="w") rotate(p1);
+  if(e.key===" ") hardDrop(p1,p2);
+
+  // P2（2人のときのみ）
+  if(mode===2){
+    if(e.key==="ArrowLeft") move(p2,-1);
+    if(e.key==="ArrowRight") move(p2,1);
+    if(e.key==="ArrowDown") drop(p2,p1);
+    if(e.key==="ArrowUp") rotate(p2);
+    if(e.key==="Enter") hardDrop(p2,p1);
+  }
+});
+
+function update(){
+  drop(p1,p2);
+  if(mode===2) drop(p2,p1);
+
+  draw(p1,"cyan");
+  if(mode===2) draw(p2,"orange");
+}
+
+let loop;
+</script>
+
+</body>
+</html>
