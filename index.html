@@ -28,6 +28,12 @@ button {
   margin: 10px;
   padding: 10px 20px;
 }
+
+.controls {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
 </style>
 </head>
 <body>
@@ -37,6 +43,20 @@ button {
 <div id="menu">
   <button onclick="startGame(1)">1人プレイ</button>
   <button onclick="startGame(2)">2人対戦</button>
+
+  <div class="controls">
+    <h3>操作方法</h3>
+    <p>
+      🟦 プレイヤー1：<br>
+      A / D → 移動　W → 回転　S → 落下<br>
+      スペース → 一気に落とす
+    </p>
+    <p>
+      🟥 プレイヤー2：<br>
+      ← → 移動　↑ → 回転　↓ → 落下<br>
+      Enter → 一気に落とす
+    </p>
+  </div>
 </div>
 
 <div class="container" id="game" style="display:none;">
@@ -172,7 +192,6 @@ function drop(player, opponent){
   }
 }
 
-// ★ ハードドロップ
 function hardDrop(player, opponent){
   while(!collide(player)){
     player.piece.y++;
@@ -224,7 +243,7 @@ document.addEventListener("keydown", e=>{
   if(e.key==="w") rotate(p1);
   if(e.key===" ") hardDrop(p1,p2);
 
-  // P2（2人のときのみ）
+  // P2
   if(mode===2){
     if(e.key==="ArrowLeft") move(p2,-1);
     if(e.key==="ArrowRight") move(p2,1);
